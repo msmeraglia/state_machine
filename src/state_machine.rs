@@ -1,44 +1,79 @@
-pub trait StateFns<'a, const NUM_STATES: usize> {
+pub trait States<'game_data, 'machine, T: 'game_data, S, const NUM_STATES: usize>
+where
+    'game_data: 'machine,
+    S: Into<usize> + From<usize>,
+    Self: 'static,
+{
+    fn get_states(
+    ) -> &'machine [&'machine dyn StateFns<'game_data, NUM_STATES, StateData = T, StateEnum = S>;
+                     NUM_STATES];
+    fn num_states() -> usize;
+}
+
+pub trait StateFns<'game_data, const NUM_STATES: usize>: Sync {
     type StateEnum: Into<usize> + From<usize>;
-    type StateData: 'a;
+    type StateData: 'game_data;
 
     fn on_enter(
         &self,
         state_data: &mut Self::StateData,
-        state_machine: &mut StateMachine<'a, Self::StateData, Self::StateEnum, NUM_STATES>,
+        state_machine: &mut StateMachine<
+            'game_data,
+            '_,
+            Self::StateData,
+            Self::StateEnum,
+            NUM_STATES,
+        >,
     );
 
     fn on_exit(
         &self,
         state_data: &mut Self::StateData,
-        state_machine: &mut StateMachine<'a, Self::StateData, Self::StateEnum, NUM_STATES>,
+        state_machine: &mut StateMachine<
+            'game_data,
+            '_,
+            Self::StateData,
+            Self::StateEnum,
+            NUM_STATES,
+        >,
     );
 
     fn update(
         &self,
         state_data: &mut Self::StateData,
-        state_machine: &mut StateMachine<'a, Self::StateData, Self::StateEnum, NUM_STATES>,
+        state_machine: &mut StateMachine<
+            'game_data,
+            '_,
+            Self::StateData,
+            Self::StateEnum,
+            NUM_STATES,
+        >,
     );
 }
 
-pub struct StateMachine<'a, T: 'a, S: 'a, const NUM_STATES: usize>
+pub struct StateMachine<'game_data, 'machine, T: 'game_data, S, const NUM_STATES: usize>
 where
+    'game_data: 'machine,
     S: Into<usize> + From<usize>,
 {
-    states: [&'a dyn StateFns<'a, NUM_STATES, StateEnum = S, StateData = T>; NUM_STATES],
+    states: &'machine [&'machine dyn StateFns<'game_data, NUM_STATES, StateData = T, StateEnum = S>;
+                  NUM_STATES],
     current_state: usize,
     next_state: Option<usize>,
 }
 
-impl<'a, T, S, const NUM_STATES: usize> StateMachine<'a, T, S, NUM_STATES>
+impl<'game_data, 'machine, T: 'game_data, S, const NUM_STATES: usize>
+    StateMachine<'game_data, 'machine, T, S, NUM_STATES>
 where
+    'game_data: 'machine,
     S: Into<usize> + From<usize>,
 {
-    pub fn new(
-        states: [&'a dyn StateFns<'a, NUM_STATES, StateEnum = S, StateData = T>; NUM_STATES],
-    ) -> Self {
+    pub fn new<StateEnum>() -> Self
+    where
+        StateEnum: States<'game_data, 'machine, T, S, NUM_STATES>,
+    {
         Self {
-            states,
+            states: StateEnum::get_states(),
             current_state: S::from(0).into(),
             next_state: None,
         }
